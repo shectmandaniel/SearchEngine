@@ -200,6 +200,45 @@ controller/AppController.java
 ```
 crawler/Crawler.java
 ```
-replace with kafka
+replace queue with kafka
 ```
 commit - with kafka redis
+###ElasticSearch
+create new index:
+```
+curl --location --request PUT 'https://avnadmin:1Nljw6Duro7x5mi8@handson-handson-52c9.aivencloud.com:19384/[yourname]'
+```
+pom.xml
+```
+		<dependency>
+			<groupId>com.squareup.okhttp3</groupId>
+			<artifactId>okhttp</artifactId>
+			<version>4.8.1</version>
+		</dependency>
+```
+application.properties
+```
+elasticsearch.base.url=https://avnadmin:1Nljw6Duro7x5mi8@handson-handson-52c9.aivencloud.com:19384
+elasticsearch.key=avnadmin:1Nljw6Duro7x5mi8
+elasticsearch.index=[yourname]
+```
+apply patch elasticSearch
+<br>
+controller/appController.java
+```java
+    private void indexElasticSearch(CrawlerRecord rec, Document webPageContent) {
+        logger.info(">> adding elastic search for webPage: " + rec.getUrl());
+        String text = String.join(" ", webPageContent.select("a[href]").eachText());
+        UrlSearchDoc searchDoc = UrlSearchDoc.of(rec.getCrawlId(), text, rec.getUrl(), rec.getBaseUrl(), rec.getDistance());
+        elasticSearch.addData(searchDoc);
+    }
+```
+https://handson-handson-52c9.aivencloud.com/app/management/opensearch-dashboards/indexPatterns/create
+<br>
+user: avnadmin
+<br>
+pass: 1Nljw6Duro7x5mi8
+<br>
+https://handson-handson-52c9.aivencloud.com/app/discover#
+<br>
+commit- with elasticsearch

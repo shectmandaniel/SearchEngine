@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.handson.searchengine.kafka.Producer;
 import com.handson.searchengine.model.*;
+import com.handson.searchengine.util.ElasticSearch;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.jsoup.Jsoup;
@@ -35,6 +36,8 @@ public class Crawler {
     @Autowired
     Producer producer;
 
+    @Autowired
+    ElasticSearch elasticSearch;
 
     public void crawl(String crawlId, CrawlerRequest crawlerRequest) throws InterruptedException, IOException {
         initCrawlInRedis(crawlId);
@@ -47,9 +50,17 @@ public class Crawler {
         if (stopReason == null) {
             logger.info("crawling url:" + rec.getUrl());
             Document webPageContent = Jsoup.connect(rec.getUrl()).get();
+            indexElasticSearch(rec, webPageContent);
             List<String> innerUrls = extractWebPageUrls(rec.getBaseUrl(), webPageContent);
             addUrlsToQueue(rec, innerUrls, rec.getDistance() +1);
         }
+    }
+
+    private void indexElasticSearch(CrawlerRecord rec, Document webPageContent) {
+        logger.info(">> adding elastic search for webPage: " + rec.getUrl());
+        String text = String.join(" ", webPageContent.select("a[href]").eachText());
+        UrlSearchDoc searchDoc = UrlSearchDoc.of(rec.getCrawlId(), text, rec.getUrl(), rec.getBaseUrl(), rec.getDistance());
+        elasticSearch.addData(searchDoc);
     }
 
     private StopReason getStopReason(CrawlerRecord rec) {
