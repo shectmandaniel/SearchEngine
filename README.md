@@ -102,3 +102,104 @@ controller/AppController.java
     }
 ```
 commit - with algo
+pom.xml
+```
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
+		</dependency>
+```
+application.properties
+```
+spring.kafka.bootstrap-servers=kafka:9092
+spring.kafka.producer.retries=0
+spring.kafka.producer.acks=1
+spring.kafka.producer.batch-size=16384
+spring.kafka.producer.properties.linger.ms=0
+spring.kafka.producer.buffer-memory = 33554432
+spring.kafka.producer.key-serializer=org.apache.kafka.common.serialization.StringSerializer
+spring.kafka.producer.value-serializer=org.springframework.kafka.support.serializer.JsonSerializer
+spring.kafka.consumer.properties.group.id=searchengine
+spring.kafka.consumer.auto-offset-reset=earliest
+spring.kafka.consumer.enable-auto-commit=true
+spring.kafka.consumer.auto-commit-interval=1000
+spring.kafka.consumer.key-deserializer=org.apache.kafka.common.serialization.StringDeserializer
+spring.kafka.consumer.value-deserializer=org.springframework.kafka.support.serializer.JsonDeserializer
+spring.kafka.consumer.properties.session.timeout.ms=120000
+spring.kafka.consumer.properties.request.timeout.ms=180000
+spring.kafka.listener.missing-topics-fatal=false
+
+spring.redis.host=redis
+spring.redis.port=6379
+
+spring.redis.pool.max-active=8  
+spring.redis.pool.max-wait=-1  
+spring.redis.pool.max-idle=8  
+spring.redis.pool.min-idle=0
+```
+apply patch redis_kafka
+<br>
+crawler/Crawler.java
+```java
+
+    @Autowired
+    RedisTemplate redisTemplate;
+
+    @Autowired
+    ObjectMapper om;
+
+    @Autowired
+    Producer producer;
+
+.
+.
+.
+    private void initCrawlInRedis(String crawlId) throws JsonProcessingException {
+        setCrawlStatus(crawlId, CrawlStatus.of(0, System.currentTimeMillis(),0,  null));
+        redisTemplate.opsForValue().set(crawlId + ".urls.count","1");
+    }
+    private void setCrawlStatus(String crawlId, CrawlStatus crawlStatus) throws JsonProcessingException {
+        redisTemplate.opsForValue().set(crawlId + ".status", om.writeValueAsString(crawlStatus));
+    }
+
+    private boolean crawlHasVisited(CrawlerRecord rec, String url) {
+        if ( redisTemplate.opsForValue().setIfAbsent(rec.getCrawlId() + ".urls." + url, "1")) {
+            redisTemplate.opsForValue().increment(rec.getCrawlId() + ".urls.count",1L);
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    private long getVisitedUrls(String crawlId) {
+        Object curCount = redisTemplate.opsForValue().get(crawlId + ".urls.count");
+        if (curCount == null) return 0L;
+        return Long.parseLong(curCount.toString());
+    }
+
+    public CrawlStatusOut getCrawlInfo(String crawlId) throws JsonProcessingException {
+        CrawlStatus cs = om.readValue(redisTemplate.opsForValue().get(crawlId + ".status").toString(),CrawlStatus.class);
+        cs.setNumPages(getVisitedUrls(crawlId));
+        return CrawlStatusOut.of(cs);
+    }
+    
+replace status and visited url with redis
+make crawl as thread remove global vars
+```
+controller/AppController.java
+```java
+    @RequestMapping(value = "/crawl/{crawlId}", method = RequestMethod.GET)
+    public CrawlStatusOut getCrawl(@PathVariable String crawlId) throws IOException, InterruptedException {
+        return crawler.getCrawlInfo(crawlId);
+    }
+```
+crawler/Crawler.java
+```
+replace with kafka
+```
+commit - with kafka redis
