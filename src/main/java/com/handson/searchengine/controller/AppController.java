@@ -9,6 +9,6 @@ public class AppController {
 
     @RequestMapping(value = "/hello", method = RequestMethod.GET)
     public String hello() {
-        return "Hello";
+        return "Hello Again";
     }
 }
