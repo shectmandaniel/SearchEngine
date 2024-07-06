@@ -2,6 +2,7 @@ package com.handson.searchengine.controller;
 
 
 import com.handson.searchengine.crawler.Crawler;
+import com.handson.searchengine.kafka.Producer;
 import com.handson.searchengine.model.CrawlStatus;
 import com.handson.searchengine.model.CrawlStatusOut;
 import com.handson.searchengine.model.CrawlerRequest;
@@ -41,6 +42,15 @@ public class AppController {
     @RequestMapping(value = "/crawl/{crawlId}", method = RequestMethod.GET)
     public CrawlStatusOut getCrawl(@PathVariable String crawlId) throws IOException, InterruptedException {
         return crawler.getCrawlInfo(crawlId);
+    }
+
+    @Autowired
+    Producer producer;
+
+    @RequestMapping(value = "/sendKafka", method = RequestMethod.POST)
+    public String sendKafka(@RequestBody CrawlerRequest request) throws IOException, InterruptedException {
+        producer.send(request);
+        return "OK";
     }
 
     private String generateCrawlId() {
